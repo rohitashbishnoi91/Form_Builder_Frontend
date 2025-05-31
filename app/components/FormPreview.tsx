@@ -15,50 +15,57 @@ export default function FormPreview({ fields, onSubmit, mode = "desktop" }: Form
         const schema: Record<string, any> = {};
 
         fields.forEach((field) => {
-            let fieldSchema: z.ZodTypeAny = z.any();
+    let fieldSchema: any;
 
-            switch (field.type) {
-                case "text":
-                case "textarea":
-                    fieldSchema = z.string();
-                    if (field.validation?.minLength) {
-                        fieldSchema = fieldSchema.min(field.validation.minLength);
-                    }
-                    if (field.validation?.maxLength) {
-                        fieldSchema = fieldSchema.max(field.validation.maxLength);
-                    }
-                    break;
-                case "email":
-                    fieldSchema = z.string().email();
-                    break;
-                case "phone":
-                    fieldSchema = z.string().regex(/^\+?[\d\s-]{10,}$/);
-                    break;
-                case "dropdown":
-                    fieldSchema = z.string();
-                    if (field.options?.length) {
-                        fieldSchema = fieldSchema.refine(
-                            (val) => field.options?.includes(val),
-                            "Please select a valid option"
-                        );
-                    }
-                    break;
-                case "checkbox":
-                    fieldSchema = z.boolean();
-                    break;
-                case "date":
-                    fieldSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
-                    break;
+    switch (field.type) {
+        case "text":
+        case "textarea":
+            fieldSchema = z.string();
+            if (field.validation?.minLength) {
+                fieldSchema = fieldSchema.min(field.validation.minLength);
             }
-
-            if (field.required) {
-                fieldSchema = fieldSchema.nonempty("This field is required");
-            } else {
-                fieldSchema = fieldSchema.optional();
+            if (field.validation?.maxLength) {
+                fieldSchema = fieldSchema.max(field.validation.maxLength);
             }
+            break;
+        case "email":
+            fieldSchema = z.string().email();
+            break;
+        case "phone":
+            fieldSchema = z.string().regex(/^\+?[\d\s-]{10,}$/);
+            break;
+        case "dropdown":
+            fieldSchema = z.string();
+            if (field.options?.length) {
+                fieldSchema = fieldSchema.refine(
+                    (val: string) => field.options?.includes(val),
+                    "Please select a valid option"
+                );
+            }
+            break;
+        case "checkbox":
+            fieldSchema = z.boolean();
+            break;
+        case "date":
+            fieldSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+            break;
+        default:
+            fieldSchema = z.any();
+    }
 
-            schema[field.id] = fieldSchema;
-        });
+    if (field.required) {
+        // Only use .nonempty() for string schemas
+        if (fieldSchema instanceof z.ZodString) {
+            fieldSchema = fieldSchema.nonempty("This field is required");
+        } else {
+            fieldSchema = fieldSchema.refine((val: any) => !!val, { message: "This field is required" });
+        }
+    } else {
+        fieldSchema = fieldSchema.optional();
+    }
+
+    schema[field.id] = fieldSchema;
+});
 
         return z.object(schema);
     };
@@ -137,11 +144,11 @@ function renderField(
         case "phone":
             return (
                 <input
-                    type={field.type}
+                    type={field.type === "phone" ? "tel" : field.type}
                     value={value}
                     onChange={(e) => onChange(e.target.value)}
                     placeholder={field.placeholder}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-700"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-700 dark:text-gray-100 bg-white text-gray-900"
                 />
             );
         case "textarea":

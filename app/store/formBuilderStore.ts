@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
@@ -72,7 +73,7 @@ export const useFormBuilderStore = create<FormBuilderState>()(
                                     ...step,
                                     fields: [
                                         ...step.fields,
-                                        { ...field, id: `field-${Date.now()}` },
+                                        { ...field, id: `field-${Date.now()}-${Math.random().toString(36).slice(2)}` },
                                     ],
                                 }
                                 : step
@@ -158,6 +159,7 @@ export const useFormBuilderStore = create<FormBuilderState>()(
         }),
         {
             name: 'form-builder-storage',
+            skipHydration: true, 
         }
     )
 ); 

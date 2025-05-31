@@ -4,7 +4,12 @@ import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, useSensor, useSe
 import { SortableContext, arrayMove, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { useFormBuilderStore } from "~/store/formBuilderStore";
 import { FormField, FieldType } from "~/store/formBuilderStore";
-import { PlusIcon, SunIcon, MoonIcon } from "@heroicons/react/24/outline";
+import { PlusIcon, SunIcon, MoonIcon, DevicePhoneMobileIcon, DeviceTabletIcon, ComputerDesktopIcon, ShareIcon } from "@heroicons/react/24/outline";
+import FieldConfig from "~/components/FieldConfig";
+import FormPreview from "~/components/FormPreview";
+import StepManager from "~/components/StepManager";
+import TemplateManager from "~/components/TemplateManager";
+import SortableField from "~/components/SortableField";
 
 const FIELD_TYPES: { type: FieldType; label: string; icon: string }[] = [
   { type: "text", label: "Text Input", icon: "T" },
@@ -16,6 +21,8 @@ const FIELD_TYPES: { type: FieldType; label: string; icon: string }[] = [
   { type: "phone", label: "Phone", icon: "📱" },
 ];
 
+type PreviewMode = "desktop" | "tablet" | "mobile";
+
 export const meta: MetaFunction = () => {
   return [
     { title: "New Remix App" },
@@ -24,9 +31,16 @@ export const meta: MetaFunction = () => {
 };
 
 export default function FormBuilder() {
-  const { steps, currentStep, formTitle, isDarkMode, actions } = useFormBuilderStore();
+  const steps = useFormBuilderStore((state) => state.steps);
+const currentStep = useFormBuilderStore((state) => state.currentStep);
+const formTitle = useFormBuilderStore((state) => state.formTitle);
+const isDarkMode = useFormBuilderStore((state) => state.isDarkMode);
+const actions = useFormBuilderStore((state) => state.actions);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [isAddingField, setIsAddingField] = useState(false);
+  const [selectedField, setSelectedField] = useState<FormField | null>(null);
+  const [previewMode, setPreviewMode] = useState<PreviewMode>("desktop");
+  const [showShareModal, setShowShareModal] = useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -43,17 +57,19 @@ export default function FormBuilder() {
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
+  const { active, over } = event;
 
-    if (over && active.id !== over.id) {
-      const oldIndex = currentStepData.fields.findIndex((field) => field.id === active.id);
-      const newIndex = currentStepData.fields.findIndex((field) => field.id === over.id);
+  if (over && active.id !== over.id) {
+    const oldIndex = currentStepData.fields.findIndex((field) => field.id === active.id);
+    const newIndex = currentStepData.fields.findIndex((field) => field.id === over.id);
 
-      actions.reorderFields(currentStepData.id, oldIndex, newIndex);
-    }
+    console.log("Drag from", oldIndex, "to", newIndex); // <-- Add this line
 
-    setActiveId(null);
-  };
+    actions.reorderFields(currentStepData.id, oldIndex, newIndex);
+  }
+
+  setActiveId(null);
+};
 
   const handleAddField = (type: FieldType) => {
     actions.addField(currentStepData.id, {
@@ -64,26 +80,90 @@ export default function FormBuilder() {
     setIsAddingField(false);
   };
 
+  const handleFieldUpdate = (fieldId: string, updates: Partial<FormField>) => {
+    actions.updateField(currentStepData.id, fieldId, updates);
+  };
+
+  const handleFormSubmit = (data: any) => {
+    // Save to localStorage
+    localStorage.setItem("form-responses", JSON.stringify(data));
+    // Or send to backend...
+    // fetch("/api/submit", { method: "POST", body: JSON.stringify(data) });
+};
+
+  const handleShare = () => {
+    const formId = `form-${Date.now()}`;
+    actions.setFormId(formId);
+    setShowShareModal(true);
+  };
+
+  const getShareableLink = () => {
+    const formId = useFormBuilderStore.getState().formId;
+    if (!formId) return "";
+    return `${window.location.origin}/form/${formId}`;
+  };
+
   return (
     <div className="form-builder-container">
       <header className="bg-white dark:bg-gray-800 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8 flex items-center justify-between">
-          <input
-            type="text"
-            value={formTitle}
-            onChange={(e) => actions.setFormTitle(e.target.value)}
-            className="text-2xl font-bold bg-transparent border-none focus:ring-2 focus:ring-primary-500 rounded px-2 py-1"
-          />
-          <button
-            onClick={() => actions.toggleDarkMode()}
-            className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
-          >
-            {isDarkMode ? (
-              <SunIcon className="h-6 w-6" />
-            ) : (
-              <MoonIcon className="h-6 w-6" />
-            )}
-          </button>
+          <div className="flex items-center space-x-4">
+            <input
+              type="text"
+              value={formTitle}
+              onChange={(e) => actions.setFormTitle(e.target.value)}
+              className="text-2xl font-bold bg-transparent border-none focus:ring-2 focus:ring-primary-500 rounded px-2 py-1"
+            />
+            <TemplateManager />
+            <button
+              onClick={handleShare}
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+            >
+              <ShareIcon className="h-5 w-5 mr-2" />
+              Share
+            </button>
+          </div>
+          <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2 bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
+              <button
+                onClick={() => setPreviewMode("desktop")}
+                className={`p-2 rounded-md ${previewMode === "desktop"
+                  ? "bg-white dark:bg-gray-800 shadow-sm"
+                  : "text-gray-500 dark:text-gray-400"
+                  }`}
+              >
+                <ComputerDesktopIcon className="h-5 w-5" />
+              </button>
+              <button
+                onClick={() => setPreviewMode("tablet")}
+                className={`p-2 rounded-md ${previewMode === "tablet"
+                  ? "bg-white dark:bg-gray-800 shadow-sm"
+                  : "text-gray-500 dark:text-gray-400"
+                  }`}
+              >
+                <DeviceTabletIcon className="h-5 w-5" />
+              </button>
+              <button
+                onClick={() => setPreviewMode("mobile")}
+                className={`p-2 rounded-md ${previewMode === "mobile"
+                  ? "bg-white dark:bg-gray-800 shadow-sm"
+                  : "text-gray-500 dark:text-gray-400"
+                  }`}
+              >
+                <DevicePhoneMobileIcon className="h-5 w-5" />
+              </button>
+            </div>
+            <button
+              onClick={() => actions.toggleDarkMode()}
+              className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
+            >
+              {isDarkMode ? (
+                <SunIcon className="h-6 w-6" />
+              ) : (
+                <MoonIcon className="h-6 w-6" />
+              )}
+            </button>
+          </div>
         </div>
       </header>
 
@@ -91,6 +171,7 @@ export default function FormBuilder() {
         <div className="grid grid-cols-12 gap-8">
           {/* Form Builder */}
           <div className="col-span-8">
+            <StepManager />
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-xl font-semibold">Form Builder</h2>
@@ -138,26 +219,30 @@ export default function FormBuilder() {
                 >
                   <div className="space-y-4">
                     {currentStepData.fields.map((field) => (
-                      <div
-                        key={field.id}
-                        className="form-field cursor-move"
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center">
-                            <span className="text-lg mr-2">
-                              {FIELD_TYPES.find((t) => t.type === field.type)?.icon}
-                            </span>
-                            <span className="font-medium">{field.label}</span>
-                          </div>
-                          <button
-                            onClick={() => actions.removeField(currentStepData.id, field.id)}
-                            className="text-gray-400 hover:text-red-500"
-                          >
-                            ×
-                          </button>
-                        </div>
-                      </div>
-                    ))}
+  <SortableField
+    key={field.id}
+    field={field}
+    onClick={() => setSelectedField(field)}
+  >
+    <div className="flex items-center justify-between">
+      <div className="flex items-center">
+        <span className="text-lg mr-2">
+          {FIELD_TYPES.find((t) => t.type === field.type)?.icon}
+        </span>
+        <span className="font-medium">{field.label}</span>
+      </div>
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          actions.removeField(currentStepData.id, field.id);
+        }}
+        className="text-gray-400 hover:text-red-500"
+      >
+        ×
+      </button>
+    </div>
+  </SortableField>
+))}
                   </div>
                 </SortableContext>
 
@@ -176,76 +261,69 @@ export default function FormBuilder() {
           <div className="col-span-4">
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
               <h2 className="text-xl font-semibold mb-6">Preview</h2>
-              <div className="form-preview">
-                {currentStepData.fields.map((field) => (
-                  <div key={field.id} className="mb-4">
-                    <label className="block text-sm font-medium mb-1">
-                      {field.label}
-                      {field.required && <span className="text-red-500 ml-1">*</span>}
-                    </label>
-                    {renderPreviewField(field)}
-                    {field.helpText && (
-                      <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                        {field.helpText}
-                      </p>
-                    )}
-                  </div>
-                ))}
-              </div>
+              <FormPreview
+                fields={currentStepData.fields}
+                onSubmit={handleFormSubmit}
+                mode={previewMode}
+              />
             </div>
           </div>
         </div>
       </main>
+
+      {/* Share Modal */}
+      {showShareModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-lg w-full">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-semibold">Share Form</h2>
+                <button
+                  onClick={() => setShowShareModal(false)}
+                  className="text-gray-400 hover:text-gray-500"
+                >
+                  ×
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <p className="text-gray-600 dark:text-gray-400">
+                  Share this link with others to let them fill out your form:
+                </p>
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="text"
+                    value={getShareableLink()}
+                    readOnly
+                    className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-700"
+                  />
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(getShareableLink());
+                    }}
+                    className="px-4 py-2 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-md"
+                  >
+                    Copy
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Field Configuration Modal */}
+      {selectedField && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-lg w-full">
+            <FieldConfig
+              field={selectedField}
+              onUpdate={(updates) => handleFieldUpdate(selectedField.id, updates)}
+              onClose={() => setSelectedField(null)}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
-}
-
-function renderPreviewField(field: FormField) {
-  switch (field.type) {
-    case "text":
-    case "email":
-    case "phone":
-      return (
-        <input
-          type={field.type}
-          placeholder={field.placeholder}
-          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-700"
-        />
-      );
-    case "textarea":
-      return (
-        <textarea
-          placeholder={field.placeholder}
-          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-700"
-          rows={3}
-        />
-      );
-    case "dropdown":
-      return (
-        <select className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-700">
-          <option value="">Select an option</option>
-          {field.options?.map((option) => (
-            <option key={option} value={option}>
-              {option}
-            </option>
-          ))}
-        </select>
-      );
-    case "checkbox":
-      return (
-        <input
-          type="checkbox"
-          className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
-        />
-      );
-    case "date":
-      return (
-        <input
-          type="date"
-          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-700"
-        />
-      );
-    default:
-      return null;
-  }
 }
