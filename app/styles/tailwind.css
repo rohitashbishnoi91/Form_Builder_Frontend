@@ -1,0 +1,21 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer components {
+    .form-builder-container {
+        @apply min-h-screen bg-gray-50 dark:bg-gray-900;
+    }
+
+    .form-field {
+        @apply p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700;
+    }
+
+    .form-preview {
+        @apply max-w-2xl mx-auto p-6 bg-white dark:bg-gray-800 rounded-lg shadow-lg;
+    }
+
+    .field-config-panel {
+        @apply p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700;
+    }
+}
