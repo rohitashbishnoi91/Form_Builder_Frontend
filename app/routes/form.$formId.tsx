@@ -28,7 +28,12 @@ export default function FormRoute() {
     }
   }, [formId]);
 
-  function handleSubmit(data: any): void {
+  function handleSubmit(data: any) {
+    // This must match your builder's key!
+    const key = formId ? `form-responses-${formId}` : "form-responses";
+    const existing = JSON.parse(localStorage.getItem(key) || "[]");
+    existing.push(data);
+    localStorage.setItem(key, JSON.stringify(existing));
     alert("Form submitted! Check the console for data.");
     console.log("Form submitted with data:", data);
   }

@@ -41,6 +41,30 @@ const actions = useFormBuilderStore((state) => state.actions);
   const [selectedField, setSelectedField] = useState<FormField | null>(null);
   const [previewMode, setPreviewMode] = useState<PreviewMode>("desktop");
   const [showShareModal, setShowShareModal] = useState(false);
+  const formId = useFormBuilderStore.getState().formId;
+const key = formId ? `form-responses-${formId}` : "form-responses";
+const [responses, setResponses] = useState<any[]>([]);
+
+useEffect(() => {
+  if (typeof window !== "undefined") {
+    const formId = useFormBuilderStore.getState().formId;
+    const key = formId ? `form-responses-${formId}` : "form-responses";
+    const stored = localStorage.getItem(key);
+    setResponses(stored ? JSON.parse(stored) : []);
+  }
+}, []);
+useEffect(() => {
+  function handleStorageChange(e: StorageEvent) {
+    if (!e.key) return;
+    const formId = useFormBuilderStore.getState().formId;
+    const key = formId ? `form-responses-${formId}` : "form-responses";
+    if (e.key === key) {
+      setResponses(e.newValue ? JSON.parse(e.newValue) : []);
+    }
+  }
+  window.addEventListener("storage", handleStorageChange);
+  return () => window.removeEventListener("storage", handleStorageChange);
+}, []);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -84,13 +108,15 @@ const actions = useFormBuilderStore((state) => state.actions);
     actions.updateField(currentStepData.id, fieldId, updates);
   };
 
-  const handleFormSubmit = (data: any) => {
-    // Save to localStorage
-    localStorage.setItem("form-responses", JSON.stringify(data));
-    // Or send to backend...
-    // fetch("/api/submit", { method: "POST", body: JSON.stringify(data) });
+const handleFormSubmit = (data: any) => {
+  console.log("Form submitted with data:", data);
+  const formId = useFormBuilderStore.getState().formId;
+  const key = formId ? `form-responses-${formId}` : "form-responses";
+  const existing = JSON.parse(localStorage.getItem(key) || "[]");
+  existing.push(data);
+  localStorage.setItem(key, JSON.stringify(existing));
+  setResponses(existing); // <-- update state
 };
-
 const handleShare = () => {
   const formId = `form-${Date.now()}`;
   actions.setFormId(formId);
@@ -285,6 +311,9 @@ useEffect(() => {
             </div>
           </div>
         </div>
+
+       
+
       </main>
 
       {/* Share Modal */}
