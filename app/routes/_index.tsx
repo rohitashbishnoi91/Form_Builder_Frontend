@@ -1,5 +1,5 @@
 import type { MetaFunction } from "@remix-run/node";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, useSensor, useSensors, PointerSensor } from "@dnd-kit/core";
 import { SortableContext, arrayMove, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { useFormBuilderStore } from "~/store/formBuilderStore";
@@ -91,11 +91,27 @@ const actions = useFormBuilderStore((state) => state.actions);
     // fetch("/api/submit", { method: "POST", body: JSON.stringify(data) });
 };
 
-  const handleShare = () => {
-    const formId = `form-${Date.now()}`;
-    actions.setFormId(formId);
-    setShowShareModal(true);
+const handleShare = () => {
+  const formId = `form-${Date.now()}`;
+  actions.setFormId(formId);
+  setShowShareModal(true);
+  // Save immediately after setting formId
+  const { formTitle, steps, currentStep } = useFormBuilderStore.getState();
+  const formToSave = { formTitle, steps, currentStep };
+  localStorage.setItem(formId, JSON.stringify(formToSave));
+};
+
+// Gather the form data you want to save
+useEffect(() => {
+  const formId = useFormBuilderStore.getState().formId;
+  if (!formId) return;
+  const formToSave = {
+    formTitle,
+    steps,
+    currentStep,
   };
+  localStorage.setItem(formId, JSON.stringify(formToSave));
+}, [formTitle, steps, currentStep]);
 
   const getShareableLink = () => {
     const formId = useFormBuilderStore.getState().formId;
